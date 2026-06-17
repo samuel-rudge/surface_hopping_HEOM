@@ -1,0 +1,19 @@
+# Data files
+*.dat
+*.npy
+*.p
+
+# SLURM FILES
+
+job_submission*
+
+# ARBITRARY
+
+
+# Python cache / compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.cpython-*
+fort.300
+.nfs*
