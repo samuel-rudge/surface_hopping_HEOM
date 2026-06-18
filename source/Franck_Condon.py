@@ -2,10 +2,10 @@ import numpy as np
 import itertools
 import scipy.special
 from scipy.special import comb
-import CreAnn
+import source.CreAnn as CreAnn
 import matplotlib.pyplot as plt
 
-class Franck_Condon():
+class source.Franck_Condon():
     
     def __init__(self,Constraints,El_Ph_Int,Ph_Freq):
         
@@ -53,7 +53,7 @@ class Franck_Condon():
 
 if __name__=='__main__':
     
-    import Franck_Condon
+    import source.Franck_Condon as Franck_Condon
 
     Nel = 1
     Nph = 1

@@ -1,51 +1,104 @@
-! ---------------------------------------------------------------------------
-! 
-!    GENERATE VALUES AND INFORMATION OF EACH COUPLED PAIR OF ADO ELEMENTS 
+!-----------------------------------------------------------------------
 !
-! ---------------------------------------------------------------------------
+!  SUBROUTINE: heom_liouvillian_one_x
 !
-! This Fortran subroutine is similar to the previous sparse_matrix_elements_a subroutine, which calculated
-! the number of coupled pairs of ADO elements in the HEOM time-propagation. This subroutine goes further and 
-! records information about each coupled pair: the value connecting them and their position in the hierarchy.
-! For example, if we know that rho_{i}(a,b) = e^{L*dt}(a,c)*rho_{j}(c,b), then the ADO elements 
-! rho_{i}(a,b) (ath row and bth column of ADO with index i) and rho_{j}(c,b) (cth row and bth column of ADO with
-! index j) are connected via the ath row and cth column of e^{L*dt}. We need to know this value and these positions
-! in order to propagate the HEOM. Note that it is necessary to run sparse_matrix_elements_a before 
-! sparse_matrix_elements_b in order to work out the size of the arrays containing the information. Fortran cannot
-! dynamically change the shape of arrays (it kind of can but it is slow) and it is much too slow to allocate an 
-! array size larger than necessary and then cut it down at the end.
+!  PURPOSE:
+!  --------
+!  This routine evaluates the *numerical values* of all nonzero entries
+!  of the sparse HEOM Liouvillian L_HEOM at a given nuclear coordinate x.
 !
-! USAGE - RUN IN ABOVE FORTRAN SUBROUTINE nnz(...):
-!               pair_info,pair_values,ham_pair_info,gamma_values = sparsity.sparse_matrix_elements_b(ksiglm=KsigLm,tier_index=tier_index,
-!                                un_ind=Un_Ind,index_minus=Index_Minus,index_plus=Index_Plus,d_ops=d_ops,ham=Ham,gamma_vec=gamma_vec,eta_vec=eta_vec,
-!                                rho_sparsity=rho_sparsity,nnz_elements=nnz_elements,dim_rho=dim_rho,len_index_plus=len_index_plus,len_un_ind=len_un_ind,
-!                                len_index_minus=len_un_ind,nmax=Nmax,nmodes=Nmodes,nel=Nel,nsign=Nsign,nleads=Nleads,npoles=Npoles)
+!  The sparsity pattern of L_HEOM (i.e. which matrix elements exist and
+!  how they are connected) is assumed to be fixed and precomputed. This
+!  routine only updates the *values* of those entries as a function of:
 !
-! INPUTS:
-!       ksiglm,tier_index,index_minus,              Same input parameters as in sparse_matrix_elements_a above
-!       index_plus,ham,max_expan_order
-!       dim_rho,len_index_plus,len_un_ind,
-!       len_index_minus,nmax,nmodes,nel,d_ops
-!       ham,rho_nonzeros,nnz_elements,
-!       rho_sparsity
+!      - the molecular electronic Hamiltonian at coordinate x
+!      - the molecule–lead coupling strengths at coordinate x
 !
-!       gamma_vec,eta_vec                           Arrays containing the exponents and coefficients of the bath-correlation function expansion
+!  All structural information (connectivity, index mapping, conjugation
+!  flags, and decomposition coefficients) is held fixed and supplied as
+!  input arrays.
 !
-!       nsign,nleads,npoles                         nsign = 2 (+=0, -=1), nleads =  number of electronic leads, npoles = number of Pade poles
+!  This separation allows efficient evaluation of L_HEOM along a nuclear
+!  trajectory without rebuilding the sparse structure at each step.
 !
-! OUTPUTS:
-!       pair_info                                   Array of size [npairs,4] containing information about the pairs of coupled nonzero elements in the HEOM.
-!                                                   Each row corresponds to a different coupled pair;
-!                                                   Column 1 contains the nonzero index of the LHS ADO element, 
-!                                                   Column 2 contains the nonzero index of the RHS ADO element,
-!                                                   Column 3 contains 1 if the connection between these two ADOs requires a hermiticity relation, and 0 if not
-!                                                   Column 4 contains ??? FINISH
 !
-!       pair_values                                 Array of size [1,npairs] containing the value of this connection (i.e. the corresponding element of e^{L*dt} in Liouville space)            
+!  CALLING CONTEXT (PYTHON WRAPPER):
+!  ---------------------------------
+!  This subroutine is invoked from:
 !
-!       ham_pair_info                               The same as pair_info, but just for the coherent part containing the commutator with the Hamiltonian
+!      generate_quantum_heom_class.generate_quantum_heom
+!          -> return_sparse_heom_one_x(...)
 !
-!       gamma_values                                Array of size [1,nnz_elements] containing the sum over gamma values for each ADO in the HEOM
+!  via:
+!
+!      generate_heom_one_x.heom_liouvillian_one_x(...)
+!
+!  It is used to update the precomputed sparse HEOM Liouvillian
+!  for a specific nuclear configuration x during propagation.
+!
+!
+!  INPUTS:
+!  -------
+!  npairs
+!      Number of nonzero entries in the sparse Liouvillian.
+!
+!  nleads, nel, dim_rho
+!      System dimensions (leads, electronic levels, Liouville space size).
+!
+!  ham_x(dim_rho, dim_rho)
+!      Molecular electronic Hamiltonian evaluated at coordinate x.
+!
+!  el_lead_couplings_x(nleads, nel)
+!      Molecule–lead coupling matrix evaluated at coordinate x.
+!
+!  pair_values_gamma(npairs)
+!      Precomputed static contribution (bath / damping / baseline terms).
+!
+!  si_ham_row_info(npairs), si_ham_col_info(npairs)
+!      Flags specifying whether Hamiltonian contribution enters real/imag
+!      parts of each sparse element.
+!
+!  ham_loc_info(npairs,2)
+!      Index mapping identifying which (i,j) element of ham_x contributes
+!      to each sparse entry.
+!
+!  si_coupleup/down_*_info
+!  couple*_loc_info
+!  couple*_conj_info
+!      Precomputed structural information controlling how coupling terms
+!      enter each sparse element (direction, conjugation, placement).
+!
+!  pair_values_couple*_wout_el_lead_coupling(npairs,2)
+!      Coupling prefactors excluding the x-dependent coupling strengths.
+!
+!
+!  OUTPUT:
+!  -------
+!  pair_values(npairs)
+!      Updated numerical values of all nonzero entries of the sparse
+!      HEOM Liouvillian at coordinate x.
+!
+!
+!  NUMERICAL ROLE:
+!  ---------------
+!  The Liouvillian is represented in sparse form as:
+!
+!      L_HEOM(x) ≡ { (row_k, col_k, value_k(x)) } for k = 1..npairs
+!
+!  This routine computes value_k(x) for fixed (row_k, col_k).
+!
+!
+!  PERFORMANCE NOTE:
+!  -----------------
+!  Since only values change with x, this avoids recomputing:
+!      - sparsity pattern
+!      - index mappings
+!      - ADO connectivity structure
+!
+!  making it suitable for repeated evaluation along trajectories.
+!
+!-----------------------------------------------------------------------
+
 
 subroutine heom_liouvillian_one_x(pair_values_gamma,si_ham_row_info,si_ham_col_info,si_coupledown_row_info,&
                                 si_coupledown_col_info,si_coupleup_row_info,si_coupleup_col_info,&

@@ -1,5 +1,5 @@
 import numpy as np
-from input_parameters import *
+from source.input_parameters import *
 
 def vibrational_initial_conditions():
 

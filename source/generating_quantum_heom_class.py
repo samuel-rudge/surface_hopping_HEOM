@@ -35,14 +35,14 @@ import numpy as np
 from time import perf_counter, asctime
 from importlib import reload
 # Import HEOM modules
-from constants import * 
+from source.constants import * 
 import sparsity
-from input_parameters import *
-import system
-import Index_pm_filter
-import generating_sparsity_class
+from source.input_parameters import *
+import source.system as system
+import source.Index_pm_filter as Index_pm_filter
+import source.generating_sparsity_class as generating_sparsity_class
 reload(generating_sparsity_class)
-import eta_gamma_barycentric
+import source.eta_gamma_barycentric as eta_gamma_barycentric
 import generate_heom_one_x
 
 class generate_quantum_heom():
@@ -172,7 +172,7 @@ class generate_quantum_heom():
 
     def generate_heom_in_sparse_representation_for_example_x(self):
 
-        import generating_sparsity_class
+        import source.generating_sparsity_class as generating_sparsity_class
         reload(generating_sparsity_class)
 
         x_vec_tester = np.array([10],dtype=float)

@@ -140,7 +140,7 @@ class Pade_spec_dec():
         return self.FD_exact
 
 if __name__=='__main__':                                                                        # Show demonstration if run directly from terminal
-    import Pade_poles
+    import source.Pade_poles as Pade_poles
     N = 10
     w = np.array([np.linspace(-0.007,0.007,num=100)])
     T = 0.001

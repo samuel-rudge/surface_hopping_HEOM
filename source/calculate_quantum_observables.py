@@ -1,4 +1,141 @@
-from input_parameters import *
+# ---------------------------------------------------------------------
+#
+#        QUANTUM OBSERVABLES FROM SPARSE HEOM STATE VECTOR
+#
+# ---------------------------------------------------------------------
+#
+# This module defines a post-processing / analysis layer for the SHEOM
+# framework, responsible for extracting physical observables from the
+# sparse HEOM state representation propagated during the dynamics.
+#
+# The HEOM state is stored as a sparse vector representation of the full
+# hierarchical density operator, including both:
+#
+#   - the molecular reduced electronic density matrix
+#   - auxiliary density operators (ADOs) encoding bath memory effects
+#
+# Observables are evaluated "on the fly" at a given nuclear coordinate x,
+# by reconstructing physically meaningful quantities from the sparse state.
+#
+# ---------------------------------------------------------------------
+#
+# PHYSICAL ROLE IN SHEOM PIPELINE
+#
+# For each nuclear configuration x(t), the propagator produces:
+#
+#     quantum_state_this_x(t)  ≡  sparse HEOM state vector
+#
+# This object is not directly observable. This class maps it to:
+#
+#   - molecular electronic density matrix  ρ_mol(x)
+#   - electronic populations               diag[ρ_mol(x)]
+#   - lead currents                        I_leads(x)
+#   - auxiliary diagnostic probabilities   (partial transition weights)
+#
+# The mapping explicitly resolves contributions from:
+#   - physical density matrix blocks (tier 0)
+#   - first-tier ADO contributions relevant for currents (tier 1)
+#
+# ---------------------------------------------------------------------
+#
+# OBSERVABLE DEFINITION STRATEGY
+#
+# The sparse HEOM representation encodes different operator sectors
+# through index metadata:
+#
+#   - tier_index:
+#         identifies whether a component belongs to
+#         physical density matrix (tier 0) or ADOs (tier > 0)
+#
+#   - rho_nonzeros_sparse:
+#         maps sparse vector entries → (row, column) matrix indices
+#
+#   - complex_coefficients:
+#         reconstruction weights for physical density matrix elements
+#
+#   - ksiglm / un_ind:
+#         encode lead, sign, and coupling-channel structure
+#
+# This class reconstructs observables by explicitly looping over
+# nonzero HEOM components.
+#
+# ---------------------------------------------------------------------
+#
+# CURRENT OPERATOR
+#
+# Lead currents are computed from first-tier ADO contributions
+# (tier_index == 1), which encode system–bath particle exchange.
+#
+# The current expression depends on:
+#
+#   - molecule–lead coupling V_km(x)
+#   - fermionic operator matrix elements d_ops
+#   - sign structure of creation/annihilation channels
+#
+# ---------------------------------------------------------------------
+#
+# USAGE IN SHEOM MAIN LOOP
+#
+# At each time step and for each trajectory:
+#
+#     observables = quantum_observables_class(
+#         sparse_heom_ingredients,
+#         molecular_system_ingredients,
+#         projected_0,
+#         projected_1
+#     )
+#
+#     current, rho_mol, populations, p01, p10 = \
+#         observables.return_quantum_observables_this_x(
+#             quantum_state_this_x,
+#             el_lead_couplings_this_x
+#         )
+#
+# These outputs are then ensemble-averaged across trajectories.
+#
+# ---------------------------------------------------------------------
+#
+# NOTES ON APPROXIMATION LEVEL
+#
+# - No additional physical approximation is introduced here.
+# - All observables are linear functionals of the HEOM state.
+# - Reconstruction assumes correct sparsity encoding from the HEOM generator.
+#
+# - Current evaluation is restricted to first-tier contributions,
+#   consistent with standard HEOM current expressions.
+#
+# ---------------------------------------------------------------------
+#
+# OUTPUT SUMMARY
+#
+# return_quantum_observables_this_x returns:
+#
+#   current_this_x:
+#       Lead-resolved particle currents
+#
+#   rho_mol_this_x:
+#       Reconstructed molecular reduced density matrix
+#
+#   populations_this_x:
+#       Electronic populations (diagonal of rho_mol)
+#
+#   partial_prob_current_0_to_1:
+#       Diagnostic transition weight (0 → 1 channel)
+#
+#   partial_prob_current_1_to_0:
+#       Diagnostic transition weight (1 → 0 channel)
+#
+# ---------------------------------------------------------------------
+#
+# This module is intentionally low-level and explicit, reflecting the
+# structure of the sparse HEOM representation without abstraction.
+#
+# It is designed for expert-level inspection and debugging of the
+# quantum–classical coupling pipeline.
+#
+# ---------------------------------------------------------------------
+
+from source.input_parameters import *
 
 class quantum_observables_class():
 

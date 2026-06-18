@@ -8,8 +8,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 # from input_parameters import *
 # from constants import *
-import barycentric_decomposition
-import Pade_poles
+import source.barycentric_decomposition as barycentric_decomposition
+import source.Pade_poles as Pade_poles
 import eta_gamma_pade
 
 class bath_correlation_decomposition():

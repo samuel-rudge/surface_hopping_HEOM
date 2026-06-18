@@ -1,54 +1,111 @@
 # ---------------------------------------------------------------------
 #
-#        DEFINING HEOM AND DOING QUANTUM PROPAGATION EXAMPLE MAIN
+#        SHEOM MAIN DRIVER: HEOM + TCL-DERIVED SURFACE HOPPING
 #
 # ---------------------------------------------------------------------
 #
-# This Python file generates the quantum HEOM and demonstrates how to use it in a 
-# dynamical way within a time propagation. 
-# 
-# Note that one must create the Python wrappers from the Fortran subroutines first 
-# (eta_gamma,sparsity,sparse_propagation). These can be run from the command line as 
-# ./compile_f2py.sh
+# This script is the main execution driver for the SHEOM framework.
 #
-# There are no direct inputs, rather, one must first change the input_parameters.py and 
-# system.py file to reflect the problem you want to solve. These
-# are imported automatically into this code. 
+# It performs coupled dynamics between:
+#   (i) classical nuclear (vibrational) motion in phase space (x, p)
+#   (ii) quantum electronic dynamics of a molecule coupled to metallic leads
+#       described exactly via Hierarchical Equations of Motion (HEOM)
 #
-# USAGE - 
+# The surface hopping mechanism is not heuristic. Transition rates between
+# electronic states are derived from a time-local master equation (TCLME),
+# which is itself obtained from exact HEOM dynamics evaluated at fixed
+# nuclear coordinate x(t).
 #
-#       python3 SHEOM_main.py
+# Electronic surfaces correspond to eigenstates of the isolated molecular
+# Hamiltonian H_mol(x), which depends parametrically on the nuclear coordinate.
 #
-# OUTPUT -
+# Nuclear motion evolves classically on a single active surface at a time,
+# while electronic transitions are stochastic events driven by HEOM-derived
+# rates.
 #
-#       At the moment, there is no output 
+# ---------------------------------------------------------------------
 #
+# REQUIREMENTS
+#
+# Before running this script, the Fortran-based numerical kernels must be
+# compiled using:
+#
+#     ./compile_f2py.sh
+#
+# This builds:
+#   - sparse HEOM Liouvillian construction routines
+#   - x-dependent Liouvillian update kernels
+#   - sparse propagation engine (MKL + OpenMP accelerated)
+#
+# ---------------------------------------------------------------------
+#
+# CONFIGURATION
+#
+# All physical and numerical parameters are defined in:
+#
+#     input_parameters.py
+#     system.py
+#
+# These include:
+#   - electronic structure and interactions
+#   - vibrational modes and couplings
+#   - molecule–lead coupling strengths
+#   - HEOM truncation and spectral decomposition parameters
+#   - temperature, bias, and bath parameters
+#   - number of trajectories and propagation settings
+#
+# There are no runtime input arguments.
+#
+# ---------------------------------------------------------------------
+#
+# USAGE
+#
+#     python3 SHEOM_main.py
+#
+# ---------------------------------------------------------------------
+#
+# OUTPUTS
+#
+# The script writes trajectory and ensemble data to disk:
+#
+#   mol_pops.dat
+#       Electronic state populations (ensemble averaged)
+#
+#   active_surfaces_tracked.dat
+#       Occupation of electronic surfaces vs time
+#
+#   x_vec.dat
+#       Nuclear positions for each trajectory
+#
+#   p_vec.dat
+#       Nuclear momenta for each trajectory
+#
+# ---------------------------------------------------------------------
 
 import os
+import source.generating_quantum_heom_class as generating_quantum_heom_class
+import source.sparse_propagation_python as sparse_propagation_python
+import source.calculate_quantum_observables as calculate_quantum_observables
+import source.vibrational_system_setup as vibrational_system_setup
+from source.input_parameters import *
+import gc,tracemalloc
+from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+
+### DEFINE NUMBER OF THREADS USED IN PROPAGATION ### 
+
 os.environ["OPENBLAS_NUM_THREADS"] = "10"
 os.environ["MKL_NUM_THREADS"] = "10"
 os.environ["NUM_THREADS"] = "10"
-
-import generating_quantum_heom_class
-import generate_heom_one_x
-# import sparse_propagation
-import sparse_propagation_python
-import calculate_quantum_observables
-import vibrational_system_setup
-from importlib import reload
-from input_parameters import *
-
-import gc,random,tracemalloc
-from matplotlib import pyplot as plt
-from matplotlib.lines import Line2D
 
 ### GENERATE QUANTUM HEOM INGREDIENTS ###
 
 quantum_heom_ingredients_object = generating_quantum_heom_class.generate_quantum_heom(regenerate_info=True)
 sparse_heom_ingredients = quantum_heom_ingredients_object.return_sparse_heom_ingredients()
 molecular_system_ingredients = quantum_heom_ingredients_object.return_molecular_system_ingredients()
-quantum_observables_object = calculate_quantum_observables.quantum_observables_class(sparse_heom_ingredients,
-                                                                                molecular_system_ingredients)
+quantum_observables_object = calculate_quantum_observables.quantum_observables_class(
+    sparse_heom_ingredients,molecular_system_ingredients
+)
 
 ### COLLECT/DEFINE NECESSARY INGREDIENTS FOR QUANTUM HEOM PROPAGATION ###
 
@@ -104,6 +161,7 @@ el_lead_couplings_this_x = el_lead_couplings_func(Nleads,Nel,V_Km,x_final)
 pair_values_this_x = quantum_heom_ingredients_object.return_sparse_heom_one_x(
                                             ham_this_x,el_lead_couplings_this_x,pair_values_this_x)
 pair_values_this_x_1 = pair_values_this_x
+
 ### TIME-PROPAGATION EXAMPLE ###
 percentage_complete_old = 0
 previous_hop_time_iteration = 0
@@ -151,21 +209,11 @@ for itrt in range(1,n_timesteps):
         ### GENERATE HEOM AT THIS VIBRATIONAL COORDINATE ###
         pair_values_this_x = quantum_heom_ingredients_object.return_sparse_heom_one_x(
                                             ham_this_x,el_lead_couplings_this_x,pair_values_this_x)
-                                            # This "basically" returns the values of the nonzero elements
+                                            # This returns the values of the nonzero elements
                                             # of the HEOM Liouvillian at this vibrational coordinate. 
         ### DO QUANTUM PART OF PROPAGATION ###
         sparse_propagation_object.update_values(pair_values_this_x)
-        # sparse_propagation_object = sparse_propagation_python.sparse_propagator(
-        #     pair_info_row_fil, pair_info_col_fil, pair_values_this_x, nnz_elements_sparse_fil
-        #     )
         rho_output = sparse_propagation_object.propagate(dt_init,rho_input, max_expan_order, rk_coeff,rho_temp,rho_output,rho_deriv)
-        # rho_output = sparse_propagation.sparse_one_step_propagation(pair_info_row=pair_info_row_fil,
-        #                 pair_info_col=pair_info_col_fil,pair_values=pair_values_this_x,dt=dt_init,
-        #                 rho_input=rho_input,max_expan_order=max_expan_order,nthreads_liouvillian=nthreads_liouvillian,
-        #                 npairs=npairs_fil,nnz_elements=nnz_elements_sparse_fil,rk_coeff=rk_coeff,rho_temp=rho_temp,
-        #                 rho_deriv=rho_deriv) # Run one timestep of fourth-order Runge-Kutta HEOM propagation.
-        #                                     # rho_output contains rho_mol + all ADOs at this timestep
-        ### OBTAIN QUANTUM OBSERVABLES FOR THIS VIBRATIONAL COORDINATE ###
         ### OBTAIN QUANTUM OBSERVABLES FOR THIS VIBRATIONAL COORDINATE ###
         rho_heom_temp[itr_traj,:] = rho_output
         quantum_observables = quantum_observables_object.return_quantum_observables_this_x(rho_output,el_lead_couplings_this_x)
@@ -193,20 +241,9 @@ for itrt in range(1,n_timesteps):
     )
     n_switches_total += np.sum(hop_this_x)
     snapshot_now = tracemalloc.take_snapshot()
-    # print_memory_diff(snapshot_prev, snapshot_now, i)
     memory_usage.append(get_memory_usage_mib(snapshot_now))
     snapshot_prev = snapshot_now
-    # print(active_surfaces)
     active_surfaces_tracked[itrt,:] = [np.sum(active_surfaces == 0)/n_trajectories,np.sum(active_surfaces == 1)/n_trajectories]
-    # n_switches = int(np.floor(transition_prob*n_trajectories)[0])
-    # # print(transition_prob*n_trajectories)
-    # n_switches_total += n_switches
-    # if n_switches > 0:
-    #     trajectories_to_switch = random.sample(trajectory_list,n_switches)
-    #     print(trajectories_to_switch)
-    #     for itr_traj_to_switch in trajectories_to_switch:
-    #         active_surfaces[itr_traj_to_switch] = 1 - active_surfaces[itr_traj_to_switch]
-    #     previous_hop_time_iteration = itrt
 
 
 tracemalloc.stop()
@@ -227,7 +264,7 @@ print(n_switches_total)
 
 import numpy as np
 from matplotlib import pyplot as plt
-from input_parameters import *
+from source.input_parameters import *
 from matplotlib.lines import Line2D
 
 mol_pops = np.genfromtxt("mol_pops.dat")

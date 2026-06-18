@@ -1,7 +1,105 @@
+"""
+HEOM + TCL-DERIVED SURFACE HOPPING
+Input Parameter Specification Module
+
+This file defines all physical, numerical, and computational parameters
+used throughout the HEOM simulation framework.
+
+It acts as the central configuration layer controlling:
+
+    - electronic structure of the system
+    - vibrational (classical and quantum) degrees of freedom
+    - molecule-lead coupling
+    - bath spectral properties
+    - HEOM hierarchy truncation and convergence settings
+    - time propagation and numerical tolerances
+    - spatial nuclear coordinate grid definition
+    - output and diagnostic options
+
+-----------------------------------------------------------------------
+GENERAL STRUCTURE
+-----------------------------------------------------------------------
+
+The parameters are organized into the following sections:
+
+1. System size and basis definition
+2. HEOM hierarchy and bath decomposition settings
+3. Numerical propagation and solver controls
+4. Bath (lead) physical parameters
+5. Vibrational mode definitions (classical and quantum)
+6. Electronic Hamiltonian specification
+7. Nuclear coordinate grid definition
+8. Molecule-lead coupling model
+9. Output and runtime control flags
+
+-----------------------------------------------------------------------
+UNITS
+-----------------------------------------------------------------------
+
+Unless otherwise stated, all quantities are expressed in:
+
+    - electron volts (eV) for energies
+    - dimensionless coordinates for vibrational modes
+    - atomic units implied where appropriate for dynamical quantities
+
+-----------------------------------------------------------------------
+EXECUTION MODEL
+-----------------------------------------------------------------------
+
+This file is NOT executed directly.
+
+It is imported by the main driver:
+
+    SHEOM_main.py
+    SHEOM_main_parallelized.py
+
+All parameters defined here are read at import time and remain fixed
+throughout a simulation run.
+
+-----------------------------------------------------------------------
+MODEL FLEXIBILITY
+-----------------------------------------------------------------------
+
+The framework supports:
+
+    - single or multi-level electronic systems
+    - multiple vibrational modes (classical and quantum)
+    - arbitrary lead configurations (number of electrodes = Nleads)
+    - tunable molecule-lead coupling matrices
+    - flexible spectral decomposition schemes (Pade / barycentric)
+    - optional wide-band limit approximation
+
+-----------------------------------------------------------------------
+OUTPUT CONTROL
+
+Several flags in this file control simulation behavior:
+
+    n_trajectories: number of surface hopping trajectories
+
+-----------------------------------------------------------------------
+COMPUTATIONAL NOTES
+
+- This file strongly influences memory scaling through:
+    dim_rho, Nmax, Nmodes, and x_grid resolution.
+
+- HEOM hierarchy size and bath decomposition parameters directly
+  determine computational complexity.
+
+- The Fortran backend depends on several parameters defined here
+  (e.g. Nleads, Nel, Nmodes, coupling strengths).
+
+-----------------------------------------------------------------------
+IMPORTANT
+
+Changing parameters in this file will change all simulation results.
+Consistency between physical parameters and numerical convergence
+settings is required for reliable results.
+"""
+
 import numpy as np
-from constants import * # pylint disable=unused-wildcard-import
-import const_ARK
-import CreAnn
+from source.constants import * # pylint disable=unused-wildcard-import
+import source.const_ARK as const_ARK
+import source.CreAnn as CreAnn
 import scipy
 import math
 

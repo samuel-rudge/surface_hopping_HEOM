@@ -232,6 +232,7 @@ class sparsity_heom_liouvillian():
         self.sparse_trace_array = sparse.csc_matrix((trace_values,(trace_rows,self.trace_cols)),
                                             shape=(self.nnz_elements_sparse_fil,self.nnz_elements_sparse_fil),dtype=float)
 
+
     def save_sparse_heom(self):
 
         sparsity_ingredients=[self.pair_info_row_fil,self.pair_info_col_fil,self.pair_values_fil,self.npairs_fil,self.npairs_uf,\

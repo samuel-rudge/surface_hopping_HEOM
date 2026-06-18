@@ -1,9 +1,121 @@
+"""
+HEOM + TCL-DERIVED SURFACE HOPPING
+System Definition and Fock Space Construction Module
+
+This module defines the full quantum system used in the HEOM simulation
+framework, including the construction of:
+
+    - fermionic and bosonic Fock spaces
+    - creation and annihilation operators
+    - system Hamiltonian (electronic + vibrational contributions)
+    - electron-vibration coupling terms
+    - coordinate-dependent Hamiltonian representations
+    - Hamiltonian derivatives with respect to nuclear coordinates
+
+It acts as the central interface between abstract model parameters
+(input_parameters.py) and the operator-level representation required
+for HEOM propagation and friction/correlation calculations.
+
+-----------------------------------------------------------------------
+CORE FUNCTIONALITY
+-----------------------------------------------------------------------
+
+The main routine system_operators(...) performs the following tasks:
+
+1. Fock space construction
+   - Generates fermionic (electronic) operators
+   - Generates bosonic (vibrational) operators (if present)
+   - Builds full system Hilbert space representation
+
+2. Hamiltonian assembly
+   - Electronic Hamiltonian (site energies, hopping, interactions)
+   - Vibrational Hamiltonian (quantum modes if enabled)
+   - Electron-vibration coupling terms
+   - Optional small-polaron transformation contributions
+
+3. Operator dressing (if vibrational coupling is present)
+   - Franck-Condon transformations
+   - Dressed fermionic operators
+   - Coordinate-shifted representations of electronic operators
+
+4. Nuclear coordinate dependence
+   - Construction of x-dependent Hamiltonian H(x)
+
+5. Output operator set
+   - System Hamiltonian
+   - Coordinate-dependent Hamiltonians
+   - Hamiltonian derivatives with respect to nuclear coordinates
+   - Optional vibrational operator structures
+
+-----------------------------------------------------------------------
+MODEL FLEXIBILITY
+-----------------------------------------------------------------------
+
+The module supports:
+
+    - single or multi-site electronic systems (Nel)
+    - multiple quantum vibrational modes
+    - classical vibrational coordinates
+    - electron-electron interactions
+    - electron-vibration coupling in both diagonal and non-diagonal form
+    - optional small-polaron transformation
+
+-----------------------------------------------------------------------
+DEPENDENCIES
+
+This module depends on:
+
+    - CreAnn: construction of creation/annihilation operators and Fock space
+    - Franck_Condon: vibrational dressing and transformation matrices
+    - input_parameters.py: global system and numerical configuration
+    - numpy / scipy: linear algebra and matrix exponentials
+
+-----------------------------------------------------------------------
+COORDINATE REPRESENTATION
+
+For HEOM propagation and friction evaluation, the Hamiltonian is evaluated
+on a discrete nuclear coordinate grid x_vec, including finite-difference
+shifts used for derivative-based coupling terms.
+
+This enables direct coupling between:
+    - nuclear motion (classical coordinate x)
+    - electronic dynamics (quantum subsystem)
+    - HEOM dissipative environment
+
+-----------------------------------------------------------------------
+OUTPUT STRUCTURE
+
+The module returns:
+
+    - creation and annihilation operators
+    - Fock space basis states
+    - system Hamiltonian H
+    - coordinate-dependent Hamiltonian H(x)
+    - Hamiltonian derivatives ∂H/∂x
+    - optional vibrational operator structures and transformations
+
+These objects form the basis for all subsequent HEOM propagation,
+friction tensor evaluation, and correlation function calculations.
+
+-----------------------------------------------------------------------
+EXECUTION MODE
+
+When executed directly, this module runs a standalone test example that:
+
+    - constructs a minimal model system
+    - builds the Hamiltonian explicitly
+    - writes operator matrices to text files
+
+This mode is intended for verification and debugging of the operator
+construction pipeline.
+"""
+
 import numpy as np
 from numpy.core.numeric import ones
-from constants import *  # pylint: disable=unused-import
-from input_parameters import * #  pylint: disable=unused-import
-import CreAnn
-import Franck_Condon
+from source.constants import *  # pylint: disable=unused-import
+from source.input_parameters import * #  pylint: disable=unused-import
+import source.CreAnn as CreAnn
+import source.Franck_Condon as Franck_Condon
 import itertools
 
 def system_operators(Single_El_Int,Double_El_Int,Nel,N_qu_vib_modes,El_Nuclear_Couplings_cl,

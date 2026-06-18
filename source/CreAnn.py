@@ -1,3 +1,158 @@
+# ---------------------------------------------------------------------
+#
+#        CREATION AND ANNIHILATION OPERATOR GENERATOR
+#        FOR FERMIONIC, BOSONIC, AND JOINT FOCK SPACES
+#
+# ---------------------------------------------------------------------
+#
+# This module constructs explicit matrix representations of:
+#
+#   - fermionic creation and annihilation operators (d†, d)
+#   - bosonic creation and annihilation operators (a†, a)
+#   - combined fermion–boson tensor-product operators
+#
+# in finite-dimensional truncated Fock spaces.
+#
+# ---------------------------------------------------------------------
+#
+# PHYSICAL ROLE
+#
+# This class provides a concrete operator representation of many-body
+# quantum systems in occupation-number (Fock) basis form.
+#
+# It is intended for constructing Hamiltonians and Liouvillians in:
+#
+#   - fermionic lattice / molecular electronic systems
+#   - bosonic vibrational or photonic modes
+#   - coupled fermion–boson hybrid systems
+#
+# ---------------------------------------------------------------------
+#
+# REPRESENTATION STRATEGY
+#
+# All operators are represented as explicit dense matrices acting on
+# Fock-space basis states.
+#
+# The basis is constructed from:
+#
+#   - fermionic occupation-number states (antisymmetric algebra)
+#   - bosonic occupation-number states (truncated harmonic oscillator)
+#   - tensor products for combined systems
+#
+# ---------------------------------------------------------------------
+#
+# FERMIONIC SECTOR
+#
+# For m fermionic modes:
+#
+#   dim_el = 2^m
+#
+# The module constructs matrix representations of:
+#
+#   d[α]    : annihilation operator for fermionic mode α
+#   d†[α]   : creation operator for fermionic mode α
+#
+# Fermionic antisymmetry is enforced explicitly via sign tracking
+# in the occupation-number basis construction.
+#
+# Operator storage format:
+#
+#   D_ops[:,:,:,0] = d†
+#   D_ops[:,:,:,1] = d
+#
+# ---------------------------------------------------------------------
+#
+# BOSONIC SECTOR
+#
+# For Nmodes bosonic modes with truncation Nbosons:
+#
+# Each mode is represented in a finite harmonic oscillator basis:
+#
+#   a† |n> = sqrt(n+1) |n+1>
+#   a  |n> = sqrt(n)   |n-1>
+#
+# Multimode operators are constructed via Kronecker products over modes.
+#
+# Operator storage format:
+#
+#   A_ops[:,:,:,0] = a†
+#   A_ops[:,:,:,1] = a
+#
+# ---------------------------------------------------------------------
+#
+# JOINT FOCK SPACE
+#
+# When both fermionic and bosonic sectors are present, the total space is:
+#
+#   dim_rho = dim_el × Nstates_boson
+#
+# Operators are embedded using tensor products:
+#
+#   fermions \otimes identity_bosons
+#   bosons   \otimes identity_fermions
+#
+# The resulting basis is a direct product of:
+#
+#   |fermionic occupation⟩ \otimes |bosonic occupation⟩
+#
+# ---------------------------------------------------------------------
+#
+# INITIALIZATION MODES
+#
+# The class supports three construction modes:
+#
+#   - "Fermi" : fermionic operators only
+#   - "Bose"  : bosonic operators only
+#   - "Both"  : combined fermion–boson system
+#
+# ---------------------------------------------------------------------
+#
+# OUTPUT INTERFACE
+#
+# Depending on initialization mode, the class provides:
+#
+# Fermionic:
+#   D_ops, d, ddag, Fermionic_Fock_states
+#
+# Bosonic:
+#   A_ops, a, adag, Bosonic_Fock_states
+#
+# Both:
+#   D_ops_joint, d_joint, ddag_joint,
+#   A_ops_joint, a_joint, adag_joint,
+#   Both_Fock_states
+#
+# ---------------------------------------------------------------------
+#
+# NUMERICAL CHARACTERISTICS
+#
+# - Fully explicit dense matrix representation
+# - Fermionic structure built via combinatorial enumeration
+# - Bosonic structure built via truncated oscillator algebra
+# - Combined spaces constructed via Kronecker products
+#
+# ---------------------------------------------------------------------
+#
+# DESIGN INTENT
+#
+# This implementation prioritizes:
+#
+#   - transparency of operator construction
+#   - exact fermionic antisymmetry
+#   - straightforward tensor-product embedding
+#
+# over computational scalability.
+#
+# ---------------------------------------------------------------------
+#
+# Note
+#
+# The fermionic construction explicitly enumerates occupation states
+# and applies sign factors from permutation parity to enforce correct
+# anticommutation relations.
+#
+# ---------------------------------------------------------------------
+
 import numpy as np
 import itertools
 import scipy.special

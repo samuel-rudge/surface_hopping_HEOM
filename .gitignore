@@ -9,6 +9,8 @@ job_submission*
 
 # ARBITRARY
 
+methods.py
+testing.py
 
 # Python cache / compiled files
 __pycache__/
@@ -17,3 +19,4 @@ __pycache__/
 *.cpython-*
 fort.300
 .nfs*
+*.o
