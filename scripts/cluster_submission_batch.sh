@@ -1,0 +1,85 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --tasks-per-node=1 
+#SBATCH --cpus-per-task=24
+#SBATCH --time=12:00:00
+#SBATCH --mem=10GB
+#SBATCH --array=0-2
+#SBATCH --export=ALL
+#SBATCH --output=logs/holstein_tests/slurm_%A_%a.out
+#SBATCH --error=logs/holstein_tests/slurm_%A_%a.out
+#SBATCH --job-name=holstein_test
+
+# ------------- LOAD ENVIRONMENT -------------
+module load compiler/intel
+module load numlib/mkl
+source ~/anaconda3/bin/activate
+
+ulimit -s 400000
+
+#---------------- Project root ---------------------
+PROJECT_ROOT="/lustre/work/ws/ws1/fr_sr1160-SHEOM/surface_hopping_heom/"
+cd $PROJECT_ROOT
+
+# --------------- Read parameters
+N_TRAJECTORIES_ARR=(100 100 100 100 100)
+VIB_FREQ_ARR=(0.03 0.03 0.003 0.03 0.003)
+ELVIB_COUP_ARR=(0.01 0.01 0.001 0.01 0.001)
+MAX_TIME_FACTOR_ARR=(50 50 500 500 500 500)
+GAMMA_CHOICE_ARR=(100 10 10 1 1)
+CG_FACTOR_ARR=(2.5 0.25 5 0.025 0.25)
+
+export N_TRAJECTORIES=${N_TRAJECTORIES_ARR[$SLURM_ARRAY_TASK_ID]}
+export VIB_FREQ=${VIB_FREQ_ARR[$SLURM_ARRAY_TASK_ID]}
+export ELVIB_COUP=${ELVIB_COUP_ARR[$SLURM_ARRAY_TASK_ID]}
+export MAX_TIME_FACTOR=${MAX_TIME_FACTOR_ARR[$SLURM_ARRAY_TASK_ID]}
+export GAMMA_CHOICE=${GAMMA_CHOICE_ARR[$SLURM_ARRAY_TASK_ID]}
+export CG_FACTOR=${CG_FACTOR_ARR[$SLURM_ARRAY_TASK_ID]}
+
+## CLASSICAL MASTER EQUATION ##
+
+PARAM_FILE_CME="config/parameters_${SLURM_ARRAY_TASK_ID}_cme.txt"
+export TIMESTEP=1
+cat > "$PARAM_FILE_CME" << EOF
+TIMESTEP=$TIMESTEP
+N_TRAJECTORIES=$N_TRAJECTORIES
+VIB_FREQ=$VIB_FREQ
+ELVIB_COUP=$ELVIB_COUP
+MAX_TIME_FACTOR=$MAX_TIME_FACTOR
+GAMMA_CHOICE=$GAMMA_CHOICE
+CG_FACTOR=$CG_FACTOR
+EOF
+
+python3 -m scripts.main_cme --root $PROJECT_ROOT --slurm_id $SLURM_ARRAY_TASK_ID
+
+## TCLE COARSE-GRAINED HEOM ##
+
+PARAM_FILE_TCLME_CG_HEOM="config/parameters_${SLURM_ARRAY_TASK_ID}_tclme_cg_sheom.txt"
+export TIMESTEP=1e-2
+cat > "$PARAM_FILE_TCLME_CG_HEOM" << EOF
+TIMESTEP=$TIMESTEP
+N_TRAJECTORIES=$N_TRAJECTORIES
+VIB_FREQ=$VIB_FREQ
+ELVIB_COUP=$ELVIB_COUP
+MAX_TIME_FACTOR=$MAX_TIME_FACTOR
+GAMMA_CHOICE=$GAMMA_CHOICE
+CG_FACTOR=$CG_FACTOR
+EOF
+
+python3 -m scripts.main_sheom --root $PROJECT_ROOT --slurm_id $SLURM_ARRAY_TASK_ID
+
+## COARSE-GRAINED HEOM ##
+
+PARAM_FILE_CG_HEOM="config/parameters_${SLURM_ARRAY_TASK_ID}_cg_sheom.txt"
+
+cat > "$PARAM_FILE_CG_HEOM" << EOF
+TIMESTEP=$TIMESTEP
+N_TRAJECTORIES=$N_TRAJECTORIES
+VIB_FREQ=$VIB_FREQ
+ELVIB_COUP=$ELVIB_COUP
+MAX_TIME_FACTOR=$MAX_TIME_FACTOR
+GAMMA_CHOICE=$GAMMA_CHOICE
+CG_FACTOR=$CG_FACTOR
+EOF
+
+python3 -m scripts.main_sheom_cg --root $PROJECT_ROOT --slurm_id $SLURM_ARRAY_TASK_ID

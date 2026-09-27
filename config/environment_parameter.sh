@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# config/environment_parameters.txt
+
+export N_TRAJECTORIES=8
+export VIB_FREQ=0.03
+export ELVIB_COUP=0.01
+export MAX_TIME_FACTOR=0.5
+export GAMMA_CHOICE=100
+export CG_FACTOR=2.5
+
+PARAM_FILE_CME="config/parameters_80085_cme.txt"
+PARAM_FILE_TCLME_CG_HEOM="config/parameters_80085_tclme_cg_sheom.txt"
+PARAM_FILE_CG_HEOM="config/parameters_80085_cg_sheom.txt"
+
+export TIMESTEP=1e-2
+cat > "$PARAM_FILE_CME" << EOF
+TIMESTEP=$TIMESTEP
+N_TRAJECTORIES=$N_TRAJECTORIES
+VIB_FREQ=$VIB_FREQ
+ELVIB_COUP=$ELVIB_COUP
+MAX_TIME_FACTOR=$MAX_TIME_FACTOR
+GAMMA_CHOICE=$GAMMA_CHOICE
+CG_FACTOR=$CG_FACTOR
+EOF
+
+cat > "$PARAM_FILE_TCLME_CG_HEOM" << EOF
+TIMESTEP=$TIMESTEP
+N_TRAJECTORIES=$N_TRAJECTORIES
+VIB_FREQ=$VIB_FREQ
+ELVIB_COUP=$ELVIB_COUP
+MAX_TIME_FACTOR=$MAX_TIME_FACTOR
+GAMMA_CHOICE=$GAMMA_CHOICE
+CG_FACTOR=$CG_FACTOR
+EOF
+
+cat > "$PARAM_FILE_CG_HEOM" << EOF
+TIMESTEP=$TIMESTEP
+N_TRAJECTORIES=$N_TRAJECTORIES
+VIB_FREQ=$VIB_FREQ
+ELVIB_COUP=$ELVIB_COUP
+MAX_TIME_FACTOR=$MAX_TIME_FACTOR
+GAMMA_CHOICE=$GAMMA_CHOICE
+CG_FACTOR=$CG_FACTOR
+EOF
+
+python3 -m scripts.main_cme --root $(pwd) --slurm_id 80085
+# python3 -m scripts.plotting_cme
+python3 -m scripts.main_sheom --root $(pwd) --slurm_id 80085
+python3 -m scripts.main_cg_sheom --root $(pwd) --slurm_id 80085
